@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Chat Application</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        .modal-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5); /* 배경을 블러처리 */
+            z-index: 999; /* 모달 창보다 낮은 z-index */
+        }
+
+        .chat-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px; /* 모달 창의 너비 조정 */
+            height: 400px; /* 모달 창의 높이 조정 */
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000; /* 모달 창의 z-index */
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        .chat-container {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            background-color: #f9f9f9;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            background-color: #f1f1f1;
+            padding: 10px;
+            border-bottom: 1px solid #ccc;
+            text-align: center;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            position: relative;
+        }
+
+        .back-button {
+            position: absolute;
+            left: 10px;
+            top: 10px;
+            background-color: #ccc;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        .close-button {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            background-color: #ccc;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 10px;
+            overflow-y: scroll;
+            border-bottom: 1px solid #ccc;
+            display: flex;
+            flex-direction: column-reverse; /* 새로운 줄바꿈 - 아래에서 위로 보여주게 */
+        }
+
+        .msgLine {
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+
+        .msgBox {
+            padding: 5px 10px;
+            border-radius: 10px;
+            display: inline-block;
+            margin-bottom: 5px;
+        }
+
+        .me {
+            background-color: #DCF8C6;
+            float: left;
+            text-align: left;
+        }
+
+        .other {
+            background-color: #E0E0E0;
+            float: right;
+            text-align: right;
+        }
+
+        .chat-input {
+            display: flex;
+            padding: 10px;
+        }
+
+        #input_box {
+            flex: 1;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        #sendmsg {
+            margin-left: 10px;
+            padding: 5px 10px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .unread-messages {
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            background-color: red;
+            color: white;
+            border-radius: 50%;
+            padding: 5px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+<div class="modal-background"></div>
+<div class="chat-container">
+    <div class="chat-header">
+        채팅
+        <button class="back-button" onclick="backToRooms()">뒤로가기</button>
+        <button class="close-button" onclick="closeModal()">Close</button>
+    </div>
+    <div id="msg" class="chat-messages"></div>
+    <form id="chatform" class="chat-input" onsubmit="return false">
+        <input type="text" id="input_box" contenteditable="true" autocomplete="off">
+        <input type="submit" id="sendmsg" value="전송">
+    </form>
+</div>
+<script>
+    var socket = io(); // socket.io 연결
+
+    var chatForm = document.getElementById('chatform');
+    var chatView = document.getElementById('msg');
+    var pathParts = window.location.pathname.split('/');
+    var sender = pathParts[2]; // URL 경로에서 보내는 사람 추출
+    var receiver = pathParts[3]; // URL 경로에서 받는 사람 추출
+
+    // 방에 조인 및 읽지 않은 메시지 초기화
+    socket.emit('joinRoom', { sender, receiver });
+
+    chatForm.addEventListener('submit', function() {
+        var msgText = $('#input_box');
+
+        if (msgText.val() == '') {
+            return;
+        } else {
+            var message = {
+                sender: sender,
+                text: msgText.val()
+            };
+            socket.emit('SEND', message);
+            msgText.val('');
+        }
+    });
+
+    socket.on('SEND', function(message) {
+        var msgLine = $('<div class="msgLine">');
+        var msgBox = $('<div class="msgBox">').text(message.text);
+
+        if (message.sender === sender) {
+            msgBox.addClass('me');
+        } else {
+            msgBox.addClass('other');
+        }
+
+        msgLine.append(msgBox);
+        $('#msg').prepend(msgLine); // 새로운 메시지를 맨 위에 추가
+
+        chatView.scrollTop = chatView.scrollHeight; // 스크롤을 맨 아래로 이동
+    });
+
+ function closeModal() {
+        socket.emit('leaveRoom');
+        window.parent.postMessage('modalClosed', 'http://localhost:8080');
+
+    }
+
+
+    function backToRooms() {
+        socket.emit('leaveRoom'); // 채팅방 나가기 이벤트 전송
+        window.location.href = '/rooms/' + sender; // 예시: 채팅방 목록 페이지로 이동
+    }
+</script>
+</body>
+</html>

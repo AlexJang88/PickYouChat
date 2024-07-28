@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Room List</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+         .room-container {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            background-color: #f9f9f9;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .room-header {
+            background-color: #f1f1f1;
+            padding: 10px;
+            border-bottom: 1px solid #ccc;
+            text-align: center;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            position: relative;
+        }
+
+        .close-button {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            background-color: #ccc;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .container {
+            padding: 20px;
+        }
+
+        .room-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .room-list li {
+            padding: 10px;
+            border: 1px solid #ccc;
+            margin-bottom: 5px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .unread-count {
+            background-color: #f00;
+            color: #fff;
+            border-radius: 50%;
+            padding: 0 5px;
+        }
+    </style>
+</head>
+<body>
+<div class="room-container">
+<div class="room-header">
+    채팅방
+    <button class="close-button" onclick="closeModal()">Close</button>
+</div>
+<div class="container">
+    <h2>Rooms for <span id="user"></span></h2>
+    <ul id="room-list" class="room-list"></ul>
+</div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        var pathParts = window.location.pathname.split('/');
+        var user = pathParts[2];
+        $('#user').text(user);
+
+        $.get('/api/rooms/' + user, function(data) {
+            var rooms = data.rooms;
+            rooms.forEach(function(room) {
+                var participants = room.roomId.split('-');
+                var otherUser = participants.find(participant => participant !== user);
+                var listItem = $('<li>').text('Chat with ' + otherUser);
+                var unreadBadge = $('<span class="unread-count">').text(room.unreadCount);
+                listItem.append(unreadBadge);
+                listItem.on('click', function() {
+                    window.location.href = '/chat/' + user + '/' + otherUser;
+                });
+                $('#room-list').append(listItem);
+            });
+        });
+    });
+    function closeModal() {
+        window.parent.postMessage('modalClosed', 'http://localhost:8080');
+        }
+</script>
+</body>
+</html>
